@@ -5,10 +5,17 @@ pipeline {
     booleanParam(name : 'BUILD_DOCKER_IMAGE', defaultValue : true, description : 'BUILD_DOCKER_IMAGE')
     booleanParam(name : 'RUN_TEST', defaultValue : true, description : 'RUN_TEST')
     booleanParam(name : 'PUSH_DOCKER_IMAGE', defaultValue : true, description : 'PUSH_DOCKER_IMAGE')
+    booleanParam(name : 'DEPLOY_WORKLOAD', defaultValue : true, description : 'DEPLOY_WORKLOAD')
+
+    string(name : 'AWS_ACCOUNT_ID', defaultValue : '489527167655', description : 'AWS_ACCOUNT_ID')
+    string(name : 'DOCKER_IMAGE_NAME', defaultValue : 'demo', description : 'DOCKER_IMAGE_NAME')
+    string(name : 'DOCKER_TAG', defaultValue : 'demo', description : 'DOCKER_TAG')
   }
 
   environment {
     REGION = "ap-northeast-2"
+    ECR_REPOSITORY = "${params.AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
+    DOCKER_IMAGE = "${ECR_REPOSITORY}/${params.DOCKER_IMAGE_NAME}:${params.DOCKER_TAG}"
   }
 
   stages {
@@ -18,7 +25,7 @@ pipeline {
         }
         steps {
             dir("${env.WORKSPACE}") { // /java_home/workspace/${build_number}/
-              sh 'docker build -t test:2 .'
+              sh 'docker build -t ${DOCKER_IMAGE} .'
             }
         }
         post {
@@ -30,19 +37,31 @@ pipeline {
     stage('============ Run test code ============') {
         when { expression { return params.RUN_TEST } }
         steps {
-            sh('docker run --rm test:2 /root/.local/bin/pytest -v')
+            sh('docker run --rm ${DOCKER_IMAGE} /root/.local/bin/pytest -v')
         }
     }
     stage('============ Push Docker Image ============') {
         when { expression { return params.PUSH_DOCKER_IMAGE } }
         steps {
-            echo "Stage Test"
+            echo "Push Docker Image to ECR"
+            sh'''
+              aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}
+              docker push ${DOCKER_IMAGE}
+            '''
+        }
+    }
+    stage('============ Deploy workload ============') {
+        when { expression { return params.DEPLOY_WORKLOAD } }
+        steps {
+            echo "Deploy workload"
         }
     }
   }
   post {
     cleanup {
-        echo "Post cleanup"
+      // 배포가 잦지 않거나 동시에 배포가 나가는 일이 거의 없을 때 사용, racecondition이 있기 때문에 section이 끝날 때 prune 하는게 좋은 것은 아님. batchjob, cronjob으로 사용하는 것이 좋은 방향
+        sh('docker image prune -f')
+        sh('docker container prune -f') 
     }
   }
 }
