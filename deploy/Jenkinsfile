@@ -42,6 +42,23 @@ pipeline {
             }
         }
     }
+    stage('Prompt for deploy') {
+        steps {
+          input 'Deploy this?'
+        }
+        // when { expression { return params.PROMPT_FOR_DEPLOY } }
+        // agent { label 'deploy' }
+        // steps {
+        //     script {
+        //         env.APPROAL_NUM = input message: 'Please enter the approval number',
+        //                           parameters: [string(defaultValue: '',
+        //                                        description: '',
+        //                                        name: 'APPROVAL_NUM')]
+        //     }
+
+        //     echo "${env.APPROAL_NUM}"
+        // }
+    } 
     stage('============ Run test code ============') {
         when { expression { return params.RUN_TEST } }
         steps {
@@ -93,13 +110,13 @@ pipeline {
         }
     }
   }
-  post {
-    cleanup {
-      // 배포가 잦지 않거나 동시에 배포가 나가는 일이 거의 없을 때 사용, racecondition이 있기 때문에 section이 끝날 때 prune 하는게 좋은 것은 아님. batchjob, cronjob으로 사용하는 것이 좋은 방향
-        sh('docker image prune -f')
-        sh('docker container prune -f') 
-    }
-  }
+  // post {
+  //   cleanup {
+  //     // 배포가 잦지 않거나 동시에 배포가 나가는 일이 거의 없을 때 사용, racecondition이 있기 때문에 section이 끝날 때 prune 하는게 좋은 것은 아님. batchjob, cronjob으로 사용하는 것이 좋은 방향
+  //       sh('docker image prune -f')
+  //       sh('docker container prune -f') 
+  //   }
+  // }
   // post {
   //   failure {
   //     slackSend(
