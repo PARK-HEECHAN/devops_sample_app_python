@@ -2,7 +2,7 @@ name: CICD
 
 on:
   push:
-    branches: [ master ]
+    branches: [ cicdstudy ]
     paths-ignore:
       - '.gitignore'
       - '.dockerignore'
@@ -10,7 +10,7 @@ on:
     # paths:
     #   - '**.py'
   pull_request:
-    branches: [ master ]
+    branches: [ cicdstudy ]
 
 jobs:
   ci:
