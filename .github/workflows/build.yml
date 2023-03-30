@@ -1,0 +1,22 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches: [ cicdstudy ]
+    paths-ignore:
+      - '.gitignore'
+      - '.dockerignore'
+      - 'README.md'
+  pull_request:
+    branches: [ cicdstudy ]
+
+jobs:
+  build-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth:  
+    - name: Build the Docker image
+      run: |
+        docker build -t Dockerfile -t 489527167655.dkr.ecr.ap-northeast-2.amazonaws.com:1.0.1 .
