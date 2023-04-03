@@ -10,7 +10,7 @@ commands:
     steps:
       - checkout
       - run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ECR_ACCOUNT_URL
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ECR_ACCOUNT_URL}
       - run: |
           docker run --rm \
             $AWS_ECR_ACCOUNT_URL/$APP_NAME:$(cat VERSION) \
