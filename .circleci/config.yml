@@ -71,6 +71,7 @@ jobs:
           version: 20.10.7 # docker version
       - test
   deploy:
+    executor: aws-cli/default
     # executor: circleciubuntu
     steps:
       - aws-cli/setup:
@@ -78,7 +79,7 @@ jobs:
       - upload-s3
       - create-codedeploy-deployment
       # - cd
- 
+
 workflows:
   cicd:
     jobs:
