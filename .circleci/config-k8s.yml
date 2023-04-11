@@ -65,7 +65,7 @@ workflows:
           repo: demo
           filters:
             branches:
-              only: release
+              only: cicdstudy
       - test:
           context: AWS
           requires:
