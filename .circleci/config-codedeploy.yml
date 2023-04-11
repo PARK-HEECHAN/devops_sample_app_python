@@ -1,0 +1,103 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@2.0.3
+  aws-ecr: circleci/aws-ecr@7.2.0
+  aws-s3: circleci/aws-s3@3.0.0
+
+commands:
+  test:
+    steps:
+      - checkout
+      - run: |
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ECR_ACCOUNT_URL}
+      - run: |
+          docker run --rm \
+            $AWS_ECR_ACCOUNT_URL/$APP_NAME:$(cat VERSION) \
+            /root/.local/bin/pytest -v
+      # - persist_to_workspace:
+      #     root: .
+      #     paths: VERSION
+  upload-s3:
+    steps:
+      - checkout
+      - run: |
+          zip -j ./$CIRCLE_BUILD_NUM.zip \
+            deploy/appspec.yml \
+            deploy/scripts/kill_process.sh \
+            deploy/scripts/run_process.sh \
+            deploy/docker-compose.yml
+      - aws-s3/copy:
+          from: ./$CIRCLE_BUILD_NUM.zip
+          to: 's3://cicdstudy-jenkins-slave-artifact-codebuild-s3'
+  create-codedeploy-deployment:
+    steps:
+      - run: |
+          aws deploy create-deployment \
+          --application-name cicdstudy-demo-codedeploy-app \
+          --deployment-group-name cicdstudy-dev-codedeploy-group \
+          --region $AWS_REGION \
+          --s3-location bucket=cicdstudy-jenkins-slave-artifact-codebuild-s3,bundleType=zip,key=$CIRCLE_BUILD_NUM.zip \
+          --file-exists-behavior OVERWRITE
+  # cd:
+  #   steps:
+  #     - attach_workspace:
+  #         at: .
+  #     - run: |
+  #         export VERSION=`cat VERSION`;
+  #         wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64.tar.gz -O - |\
+  #           tar xz && sudo mv yq_linux_amd64 /usr/bin/yq;
+  #         git clone https://github.com/dev-chulbuji/devops_k8s.git && cd devops_k8s;
+  #         yq eval -i '.image.tag = env(VERSION)' 'demo/values.yaml';
+  #         yq eval -i '.image.tag = env(VERSION)' 'demo/values-eks.yaml';
+  #         git config --global user.email "dev-chulbuji@gmail.com";
+  #         git config --global user.name "dev-chulbuji";
+  #         git add demo/values.yaml demo/values-eks.yaml;
+  #         git commit --message "Update demo image tag to $VERSION";
+  #         git push https://$GITHUB_TOKEN@github.com/dev-chulbuji/devops_k8s.git;
+executors:
+  circleciubuntu:
+    machine:
+      image: ubuntu-2004:202010-01
+
+jobs:
+  test:
+    executor: aws-cli/default
+    steps:
+      - aws-cli/setup:
+          profile-name: default
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: 20.10.7 # docker version
+      - test
+  deploy:
+    executor: aws-cli/default
+    # executor: circleciubuntu
+    steps:
+      - aws-cli/setup:
+          profile-name: default
+      - upload-s3
+      - create-codedeploy-deployment
+      # - cd
+
+workflows:
+  cicd:
+    jobs:
+      - aws-ecr/build-and-push-image:
+          name: build-and-push-image
+          context: AWS
+          checkout: true
+          tag: $(cat VERSION)
+          repo: demo
+          filters:
+            branches:
+              only: cicdstudy
+      - test:
+          context: AWS
+          requires:
+            - build-and-push-image
+      - deploy:
+          # context: GIT
+          context: AWS
+          requires:
+            - test

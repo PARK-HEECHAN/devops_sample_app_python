@@ -33,7 +33,7 @@ commands:
           git checkout cicdstudy;
           git add demo/values.yaml demo/values-eks.yaml;
           git commit --message "Update demo image tag to $VERSION";
-          git push https://$GITHUB_TOKEN@github.com/dev-chulbuji/devops_k8s.git cicdstudy;
+          git push https://$GITHUB_TOKEN@github.com/dev-chulbuji/devops_k8s.git;
 executors:
   circleciubuntu:
     machine:
@@ -72,5 +72,9 @@ workflows:
             - build-and-push-image
       - deploy:
           context: GIT
+          # filters:
+          #   branches:
+          #     only:
+          #       - cicdstudy
           requires:
             - test
