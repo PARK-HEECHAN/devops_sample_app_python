@@ -30,7 +30,7 @@ commands:
           yq eval -i '.image.tag = env(VERSION)' 'demo/values-eks.yaml';
           git config --global user.email "andrew6371@naver.com"
           git config --global user.name "PARK-HEECHAN"
-          git checkout cicdstudy;
+          git stash && git checkout cicdstudy && git stash pop;
           git add demo/values.yaml demo/values-eks.yaml;
           git commit --message "Update demo image tag to $VERSION";
           git push https://$GITHUB_TOKEN@github.com/dev-chulbuji/devops_k8s.git;
