@@ -26,14 +26,14 @@ commands:
           wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64.tar.gz -O - |\
             tar xz && sudo mv yq_linux_amd64 /usr/bin/yq;
           git clone https://github.com/PARK-HEECHAN/devops_k8s.git && cd devops_k8s;
-          yq eval -i '.image.tag = env(VERSION)' 'demo/values.yaml';
-          yq eval -i '.image.tag = env(VERSION)' 'demo/values-eks.yaml';
           git config --global user.email "andrew6371@naver.com"
           git config --global user.name "PARK-HEECHAN"
-          git stash && git checkout cicdstudy && git stash pop;
+          git checkout cicdstudy;
+          yq eval -i '.image.tag = env(VERSION)' 'demo/values.yaml';
+          yq eval -i '.image.tag = env(VERSION)' 'demo/values-eks.yaml';
           git add demo/values.yaml demo/values-eks.yaml;
           git commit --message "Update demo image tag to $VERSION";
-          git push https://$GITHUB_TOKEN@github.com/dev-chulbuji/devops_k8s.git;
+          git push https://$GITHUB_TOKEN@github.com/PARK-HEECHAN/devops_k8s.git cicdstudy;
 executors:
   circleciubuntu:
     machine:
