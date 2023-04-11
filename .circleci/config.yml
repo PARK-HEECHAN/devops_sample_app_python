@@ -28,7 +28,6 @@ commands:
           git clone https://github.com/PARK-HEECHAN/devops_k8s.git && cd devops_k8s;
           git config --global user.email "andrew6371@naver.com"
           git config --global user.name "PARK-HEECHAN"
-          # git stash && git checkout cicdstudy && git stash pop;
           git checkout cicdstudy;
           yq eval -i '.image.tag = env(VERSION)' 'demo/values.yaml';
           yq eval -i '.image.tag = env(VERSION)' 'demo/values-eks.yaml';
