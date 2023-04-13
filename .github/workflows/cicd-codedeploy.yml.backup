@@ -1,4 +1,4 @@
-name: CI/CD
+name: CICD
 
 on:
   push:
@@ -7,16 +7,14 @@ on:
       - '.gitignore'
       - '.dockerignore'
       - 'README.md'
-#    paths:
-#      - '**.py'
+    # paths:
+    #   - '**.py'
   pull_request:
     branches: [ cicdstudy ]
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    outputs:
-      IMAGE_TAG: ${{steps.set-var.outputs.IMAGE_TAG}}
     steps:
     - uses: actions/checkout@v3
       with:
@@ -56,40 +54,41 @@ jobs:
       id: push-image
       run: |
         docker push ${{ steps.set-var.outputs.ECR_REGISTRY }}/${{ steps.set-var.outputs.ECR_REPOSITORY }}:${{ steps.set-var.outputs.IMAGE_TAG }}
+    - name: Make zip file
+      run: |
+        zip -j ./$GITHUB_SHA.zip \
+          deploy/appspec.yml \
+          deploy/scripts/kill_process.sh \
+          deploy/scripts/run_process.sh \
+          deploy/docker-compose.yml
+      shell: bash
+    - name: Upload to S3
+      env:
+        REGION: ap-northeast-2
+        S3_NAME: cicdstudy-jenkins-slave-artifact-codebuild-s3
+      run: aws s3 cp --region ${REGION} ./$GITHUB_SHA.zip s3://${S3_NAME}/$GITHUB_SHA.zip
+
   cd:
     needs: [ci]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Target Repository
-        uses: actions/checkout@v3
-        with:
-          repository: PARK-HEECHAN/devops_k8s
-          path: deploy-k8s
-          ref: cicdstudy
-        
-      - name: Replace image tag in helm values (LOCAL)
-        uses: mikefarah/yq@master
-        env:
-          IMAGE_TAG: ${{needs.ci.outputs.IMAGE_TAG}}
-        with:
-          cmd: yq eval -i '.image.tag = env(IMAGE_TAG)' 'deploy-k8s/demo/values.yaml'
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
 
-      - name: Replace image tag in helm values (EKS)
-        uses: mikefarah/yq@master
-        env:
-          IMAGE_TAG: ${{needs.ci.outputs.IMAGE_TAG}}
-        with:
-          cmd: yq eval -i '.image.tag = env(IMAGE_TAG)' 'deploy-k8s/demo/values-eks.yaml'
-
-      - name: Push helm repo
-        env:
-          token: ${{ secrets.GH_TOKEN }}
-          IMAGE_TAG: ${{needs.ci.outputs.IMAGE_TAG}}
-        run: |
-          cd deploy-k8s
-          git config --global user.email "andrew6371@naver.com"
-          git config --global user.name "PARK-HEECHAN"
-          git add demo/values.yaml demo/values-eks.yaml;
-          git commit --message "Update demo image tag to $IMAGE_TAG";
-          git config -l | grep 'http\..*\.extraheader' | cut -d= -f1 | xargs -L1 git config --unset-all
-          git push --prune https://token:$token@github.com/PARK-HEECHAN/devops_k8s.git
+    - name: Create codeDeploy deployment
+      env:
+        REGION: ap-northeast-2
+        CODEDEPLOY_NAME: cicdstudy-demo-codedeploy-app
+        CODEDEPLOY_GROUP_NAME: cicdstudy-dev-codedeploy-group
+        S3_NAME: cicdstudy-jenkins-slave-artifact-codebuild-s3
+      run: |
+        aws deploy create-deployment \
+          --application-name ${CODEDEPLOY_NAME} \
+          --deployment-group-name ${CODEDEPLOY_GROUP_NAME} \
+          --region ${REGION} \
+          --s3-location bucket=${S3_NAME},bundleType=zip,key=$GITHUB_SHA.zip \
+          --file-exists-behavior OVERWRITE \
